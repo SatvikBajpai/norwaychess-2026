@@ -167,6 +167,13 @@ export function backtestClassical(
 ): ClassicalReport {
   const samples = opts.formSamples ?? 0;
   const n = games.length;
+  if (n === 0) {
+    return {
+      n: 0, brier: 0, logLoss: 0, baselineBrier: 0, baselineLogLoss: 0, skillBrier: 0,
+      predictedDrawRate: 0, observedDrawRate: 0, predictedWhiteScore: 0, observedWhiteScore: 0,
+      drawReliability: [], drawECE: 0, whiteWinReliability: [], whiteWinECE: 0,
+    };
+  }
   let nW = 0;
   let nD = 0;
   let nB = 0;
@@ -211,7 +218,7 @@ export function backtestClassical(
     logLoss: logLoss / n,
     baselineBrier: bBrier / n,
     baselineLogLoss: bLog / n,
-    skillBrier: 1 - brier / bBrier,
+    skillBrier: bBrier > 0 ? 1 - brier / bBrier : 0,
     predictedDrawRate: predDraw / n,
     observedDrawRate: nD / n,
     predictedWhiteScore: predWhiteScore / n,
@@ -297,7 +304,7 @@ function classicalLogLoss(games: HistGame[], params: SimParams, samples: number)
     const y = oneHot(g.classical);
     s += -(y[0] * Math.log(clampP(p.pWhiteWin)) + y[1] * Math.log(clampP(p.pDraw)) + y[2] * Math.log(clampP(p.pBlackWin)));
   }
-  return s / games.length;
+  return games.length ? s / games.length : 0;
 }
 
 function armageddonLogLoss(games: HistGame[], params: SimParams, samples: number): number {

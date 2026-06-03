@@ -57,5 +57,40 @@ const arm = all.filter((g) => g.armageddon);
 const armW = arm.filter((g) => g.armageddon === "white").length;
 console.log(
   `\nALL  n=${all.length}  drawRate=${pc(all.filter((g) => g.classical === "draw").length / all.length)}  ` +
-    `armN=${arm.length}  classW-wins-Arm=${pc(armW / arm.length)}`,
+    `armN=${arm.length}  classW-wins-Arm=${arm.length ? pc(armW / arm.length) : "-"}`,
+);
+
+// Structural sanity: within each event no ordered (white, black) pair should repeat, and in a
+// double round-robin every player should have equal White and Black counts. Standings
+// reconstruction is colour-blind, so this is what catches a swapped-colour data error.
+let warnings = 0;
+for (const [event, games] of byEvent.entries()) {
+  const seen = new Set<string>();
+  const wc = new Map<string, number>();
+  const bc = new Map<string, number>();
+  for (const g of games) {
+    const key = `${g.white}>${g.black}`;
+    if (seen.has(key)) {
+      console.log(`  WARN ${event}: duplicate colour pairing ${key}`);
+      warnings++;
+    }
+    seen.add(key);
+    wc.set(g.white, (wc.get(g.white) ?? 0) + 1);
+    bc.set(g.black, (bc.get(g.black) ?? 0) + 1);
+  }
+  const players = new Set([...wc.keys(), ...bc.keys()]);
+  const isDoubleRR = games.length === players.size * (players.size - 1);
+  if (isDoubleRR) {
+    for (const p of players) {
+      if ((wc.get(p) ?? 0) !== (bc.get(p) ?? 0)) {
+        console.log(`  WARN ${event}: ${p} ${wc.get(p) ?? 0}W/${bc.get(p) ?? 0}B (double RR expects equal)`);
+        warnings++;
+      }
+    }
+  }
+}
+console.log(
+  warnings
+    ? `\n${warnings} structural warning(s).`
+    : "\nStructural checks passed: no duplicate pairings; double-RR colours balanced.",
 );

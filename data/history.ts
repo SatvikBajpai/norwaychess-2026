@@ -13,7 +13,15 @@
 //   - 2022 open: 45 games (confidence high)
 //
 // Totals: 210 classical games, 133 drawn (63.3%),
-// 133 Armageddons, White won 79 (59.4%).
+// 133 Armageddons, White won 80 (60.2%).
+//
+// Manual corrections applied after generation (not present in the gathered source):
+//   - 2025 Women R1: colours were Ju Wenjun (White) vs Lei Tingjie, which is impossible in
+//     a double round-robin (they also meet in R6 with Ju as White). Per chess.com / ChessBase
+//     the R1 game was Lei Tingjie (White) vs Ju Wenjun; corrected here, and the Armageddon
+//     field flipped accordingly (the classical-White player, Lei, took the Armageddon).
+//   - 2023 event name normalised to "Norway Chess 2023 open".
+// scripts/analyze.ts now asserts double round-robin colour balance to catch this class of error.
 
 import type { HistGame } from "@/lib/backtest";
 
@@ -358,12 +366,12 @@ export const HISTORY: HistGame[] = [
     "event": "Norway Chess 2025 women",
     "section": "women",
     "round": 1,
-    "white": "Ju Wenjun",
-    "black": "Lei Tingjie",
-    "whiteRating": 2580,
-    "blackRating": 2552,
+    "white": "Lei Tingjie",
+    "black": "Ju Wenjun",
+    "whiteRating": 2552,
+    "blackRating": 2580,
     "classical": "draw",
-    "armageddon": "black"
+    "armageddon": "white"
   },
   {
     "event": "Norway Chess 2025 women",
@@ -1293,7 +1301,7 @@ export const HISTORY: HistGame[] = [
     "classical": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 1,
     "white": "Magnus Carlsen",
@@ -1303,7 +1311,7 @@ export const HISTORY: HistGame[] = [
     "classical": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 1,
     "white": "Gukesh D",
@@ -1313,7 +1321,7 @@ export const HISTORY: HistGame[] = [
     "classical": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 1,
     "white": "Aryan Tari",
@@ -1324,7 +1332,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 1,
     "white": "Anish Giri",
@@ -1335,7 +1343,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 1,
     "white": "Hikaru Nakamura",
@@ -1346,7 +1354,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 2,
     "white": "Wesley So",
@@ -1357,7 +1365,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 2,
     "white": "Nodirbek Abdusattorov",
@@ -1367,7 +1375,7 @@ export const HISTORY: HistGame[] = [
     "classical": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 2,
     "white": "Hikaru Nakamura",
@@ -1377,7 +1385,7 @@ export const HISTORY: HistGame[] = [
     "classical": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 2,
     "white": "Fabiano Caruana",
@@ -1388,7 +1396,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 2,
     "white": "Shakhriyar Mamedyarov",
@@ -1398,7 +1406,7 @@ export const HISTORY: HistGame[] = [
     "classical": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 3,
     "white": "Magnus Carlsen",
@@ -1409,7 +1417,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 3,
     "white": "Alireza Firouzja",
@@ -1419,7 +1427,7 @@ export const HISTORY: HistGame[] = [
     "classical": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 3,
     "white": "Aryan Tari",
@@ -1429,7 +1437,7 @@ export const HISTORY: HistGame[] = [
     "classical": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 3,
     "white": "Gukesh D",
@@ -1440,7 +1448,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 3,
     "white": "Anish Giri",
@@ -1451,7 +1459,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 4,
     "white": "Magnus Carlsen",
@@ -1462,7 +1470,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 4,
     "white": "Hikaru Nakamura",
@@ -1473,7 +1481,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 4,
     "white": "Wesley So",
@@ -1484,7 +1492,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 4,
     "white": "Fabiano Caruana",
@@ -1494,7 +1502,7 @@ export const HISTORY: HistGame[] = [
     "classical": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 4,
     "white": "Nodirbek Abdusattorov",
@@ -1505,7 +1513,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 5,
     "white": "Anish Giri",
@@ -1516,7 +1524,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 5,
     "white": "Shakhriyar Mamedyarov",
@@ -1526,7 +1534,7 @@ export const HISTORY: HistGame[] = [
     "classical": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 5,
     "white": "Alireza Firouzja",
@@ -1537,7 +1545,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 5,
     "white": "Aryan Tari",
@@ -1547,7 +1555,7 @@ export const HISTORY: HistGame[] = [
     "classical": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 5,
     "white": "Gukesh D",
@@ -1558,7 +1566,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 6,
     "white": "Magnus Carlsen",
@@ -1569,7 +1577,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 6,
     "white": "Anish Giri",
@@ -1580,7 +1588,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 6,
     "white": "Hikaru Nakamura",
@@ -1591,7 +1599,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 6,
     "white": "Wesley So",
@@ -1602,7 +1610,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 6,
     "white": "Fabiano Caruana",
@@ -1612,7 +1620,7 @@ export const HISTORY: HistGame[] = [
     "classical": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 7,
     "white": "Alireza Firouzja",
@@ -1623,7 +1631,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 7,
     "white": "Nodirbek Abdusattorov",
@@ -1633,7 +1641,7 @@ export const HISTORY: HistGame[] = [
     "classical": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 7,
     "white": "Gukesh D",
@@ -1644,7 +1652,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 7,
     "white": "Shakhriyar Mamedyarov",
@@ -1655,7 +1663,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 7,
     "white": "Aryan Tari",
@@ -1665,7 +1673,7 @@ export const HISTORY: HistGame[] = [
     "classical": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 8,
     "white": "Magnus Carlsen",
@@ -1676,7 +1684,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 8,
     "white": "Anish Giri",
@@ -1687,7 +1695,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 8,
     "white": "Hikaru Nakamura",
@@ -1698,7 +1706,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 8,
     "white": "Aryan Tari",
@@ -1708,7 +1716,7 @@ export const HISTORY: HistGame[] = [
     "classical": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 8,
     "white": "Wesley So",
@@ -1719,7 +1727,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 9,
     "white": "Nodirbek Abdusattorov",
@@ -1730,7 +1738,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 9,
     "white": "Gukesh D",
@@ -1741,7 +1749,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "white"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 9,
     "white": "Fabiano Caruana",
@@ -1751,7 +1759,7 @@ export const HISTORY: HistGame[] = [
     "classical": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 9,
     "white": "Shakhriyar Mamedyarov",
@@ -1762,7 +1770,7 @@ export const HISTORY: HistGame[] = [
     "armageddon": "black"
   },
   {
-    "event": "Norway Chess 2023 (11th Altibox Norway Chess) 2023 open",
+    "event": "Norway Chess 2023 open",
     "section": "open",
     "round": 9,
     "white": "Alireza Firouzja",

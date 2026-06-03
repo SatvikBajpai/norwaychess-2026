@@ -72,8 +72,8 @@ const header = `// Past Norway Chess editions, used as out-of-sample backtest da
 // Included editions:
 ${included.map((s) => `//   - ${s}`).join("\n")}
 ${excluded.length ? "// Excluded (failed validation):\n" + excluded.map((s) => `//   - ${s}`).join("\n") + "\n" : ""}//
-// Totals: ${out.length} classical games, ${nDraw} drawn (${((nDraw / out.length) * 100).toFixed(1)}%),
-// ${arm.length} Armageddons, White won ${armWhite} (${((armWhite / arm.length) * 100).toFixed(1)}%).
+// Totals: ${out.length} classical games, ${nDraw} drawn (${out.length ? ((nDraw / out.length) * 100).toFixed(1) : "0.0"}%),
+// ${arm.length} Armageddons, White won ${armWhite} (${arm.length ? ((armWhite / arm.length) * 100).toFixed(1) : "0.0"}%).
 
 import type { HistGame } from "@/lib/backtest";
 
@@ -84,7 +84,9 @@ writeFileSync("data/history.ts", header);
 
 console.log("Included:\n  " + included.join("\n  "));
 if (excluded.length) console.log("Excluded:\n  " + excluded.join("\n  "));
+const drawPct = out.length ? ((nDraw / out.length) * 100).toFixed(1) : "0.0";
+const armPct = arm.length ? ((armWhite / arm.length) * 100).toFixed(1) : "0.0";
 console.log(
-  `\nWrote data/history.ts: ${out.length} games, draw rate ${((nDraw / out.length) * 100).toFixed(1)}%, ` +
-    `Armageddon White rate ${((armWhite / arm.length) * 100).toFixed(1)}% (n=${arm.length}).`,
+  `\nWrote data/history.ts: ${out.length} games, draw rate ${drawPct}%, ` +
+    `Armageddon White rate ${armPct}% (n=${arm.length}).`,
 );

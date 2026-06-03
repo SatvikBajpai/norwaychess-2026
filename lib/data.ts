@@ -84,7 +84,10 @@ const openRounds: Round[] = [
     date: "2026-05-31",
     games: [
       { white: "carlsen", black: "firouzja", result: { classical: W } },
-      { white: "so", black: "pragg", result: { classical: W } },
+      // Colours reversed from the first-cycle R1 pairing (double round-robin second cycle
+      // mirrors colours); the source listed So with White twice vs Pragg, which is impossible.
+      // So won the game either way; this does not affect standings or the live forecast.
+      { white: "pragg", black: "so", result: { classical: B } },
       { white: "keymer", black: "gukesh", result: { classical: W } },
     ],
   },
@@ -189,7 +192,8 @@ const womenRounds: Round[] = [
     games: [
       { white: "zhu", black: "muzychuk", result: { classical: D, armageddon: W } },
       { white: "divya", black: "ju", result: { classical: B } },
-      { white: "assaubayeva", black: "humpy", result: { classical: D, armageddon: W } },
+      // Colours reversed from R1 (see the Open R6 note); Assaubayeva won the Armageddon either way.
+      { white: "humpy", black: "assaubayeva", result: { classical: D, armageddon: B } },
     ],
   },
   {
