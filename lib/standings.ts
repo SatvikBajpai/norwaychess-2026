@@ -54,5 +54,9 @@ export interface RemainingRound {
 export function remainingRounds(section: Section): RemainingRound[] {
   return section.rounds
     .filter((r) => r.games.some((g) => !g.result))
-    .map((r) => ({ number: r.number, date: r.date, games: r.games }));
+    .map((r) => ({
+      number: r.number,
+      date: r.date,
+      games: r.games.filter((g) => !g.result),
+    }));
 }
