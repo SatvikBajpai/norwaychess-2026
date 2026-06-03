@@ -96,6 +96,24 @@ function section(title: string) {
   console.log("=".repeat(72));
 }
 
+// The original hand-set defaults, kept here to show the before/after of recalibration.
+const ORIGINAL: SimParams = {
+  iterations: 40000,
+  whiteAdvantage: 35,
+  baseDrawRate: 0.5,
+  drawFloor: 0.12,
+  ratingSD: 50,
+  armageddonWhiteAdvantage: 15,
+  armageddonDamp: 0.55,
+};
+
+function paramLine(p: SimParams): string {
+  return (
+    `whiteAdvantage ${p.whiteAdvantage}  baseDrawRate ${p.baseDrawRate}  ` +
+    `armageddonWhiteAdvantage ${p.armageddonWhiteAdvantage}  armageddonDamp ${p.armageddonDamp}`
+  );
+}
+
 function main() {
   const open2026 = sectionToHistGames(SECTIONS.open, "Norway Chess 2026 Open");
   const women2026 = sectionToHistGames(SECTIONS.women, "Norway Chess 2026 Women");
@@ -107,43 +125,30 @@ function main() {
       `history = ${HISTORY.length} games; total = ${all.length}.`,
   );
 
-  section("DEFAULT MODEL  -  Norway Chess 2026 (verified)");
-  reportClassical(games2026, DEFAULT_PARAMS);
+  section("ORIGINAL hand-set model  -  all games combined");
+  console.log(`params: ${paramLine(ORIGINAL)}\n`);
+  reportClassical(all, ORIGINAL);
   console.log();
-  reportArmageddon(games2026, DEFAULT_PARAMS);
+  reportArmageddon(all, ORIGINAL);
 
-  if (HISTORY.length > 0) {
-    section("DEFAULT MODEL  -  past editions (history)");
-    reportClassical(HISTORY, DEFAULT_PARAMS);
-    console.log();
-    reportArmageddon(HISTORY, DEFAULT_PARAMS);
+  section("RECALIBRATED defaults  -  all games combined");
+  console.log(`params: ${paramLine(DEFAULT_PARAMS)}\n`);
+  reportClassical(all, DEFAULT_PARAMS);
+  console.log();
+  reportArmageddon(all, DEFAULT_PARAMS);
 
-    section("DEFAULT MODEL  -  all games combined");
-    reportClassical(all, DEFAULT_PARAMS);
-    console.log();
-    reportArmageddon(all, DEFAULT_PARAMS);
-  }
-
-  section("PARAMETER FIT  (coarse grid, log-loss; treat as 'what the data leans toward')");
-  const fit = fitParams(all, DEFAULT_PARAMS);
-  console.log("Default params:");
-  console.log(
-    `  whiteAdvantage ${DEFAULT_PARAMS.whiteAdvantage}  baseDrawRate ${DEFAULT_PARAMS.baseDrawRate}  ` +
-      `armageddonWhiteAdvantage ${DEFAULT_PARAMS.armageddonWhiteAdvantage}  armageddonDamp ${DEFAULT_PARAMS.armageddonDamp}`,
-  );
-  console.log("Fitted params:");
-  console.log(
-    `  whiteAdvantage ${fit.params.whiteAdvantage}  baseDrawRate ${fit.params.baseDrawRate}  ` +
-      `armageddonWhiteAdvantage ${fit.params.armageddonWhiteAdvantage}  armageddonDamp ${fit.params.armageddonDamp}`,
-  );
+  section("PARAMETER FIT  (coarse grid, log-loss; 'what the data leans toward', overfit-prone)");
+  const fit = fitParams(all, ORIGINAL);
+  console.log(`fitted: ${paramLine(fit.params)}`);
   console.log(
     `  classical log-loss ${f(fit.classicalLogLoss)}   armageddon log-loss ${f(fit.armageddonLogLoss)}`,
   );
-
-  section("FITTED MODEL  -  all games combined");
-  reportClassical(all, fit.params);
-  console.log();
-  reportArmageddon(all, fit.params);
+  console.log(
+    "  NOTE: the Armageddon fit is unstable - on 2026 alone the grid wants armageddonWhiteAdvantage -40,",
+  );
+  console.log(
+    "  on the pooled set +20. The edge is within noise, so the recalibrated defaults stay near coin-flip.",
+  );
   console.log();
 }
 

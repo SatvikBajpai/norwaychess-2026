@@ -17,14 +17,19 @@ import type {
   SimResult,
 } from "./types";
 
+// Defaults recalibrated against 258 real Norway Chess games (2022-2026, both sections);
+// see CALIBRATION.md. The headline change is a much higher draw rate (elite classical games
+// drew ~63% of the time, vs the ~39% the old 0.5 base produced), plus a near-neutral, weakly
+// rating-dependent Armageddon model since the data shows Armageddon is close to a coin flip
+// with no robust White/Black edge.
 export const DEFAULT_PARAMS: SimParams = {
   iterations: 40000,
   whiteAdvantage: 35,
-  baseDrawRate: 0.5,
+  baseDrawRate: 0.78,
   drawFloor: 0.12,
   ratingSD: 50,
-  armageddonWhiteAdvantage: 15,
-  armageddonDamp: 0.55,
+  armageddonWhiteAdvantage: 5,
+  armageddonDamp: 0.3,
 };
 
 /** Points awarded to [white, black] for a settled game. */
