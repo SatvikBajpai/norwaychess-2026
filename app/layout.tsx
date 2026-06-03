@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo, Bodoni_Moda, Spectral } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const bodoni = Bodoni_Moda({
@@ -40,7 +41,10 @@ export default function RootLayout({
       lang="en"
       className={`${bodoni.variable} ${spectral.variable} ${archivo.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
