@@ -109,6 +109,26 @@ function armageddonWhiteWinProb(
   return Math.max(0.02, Math.min(0.98, v));
 }
 
+// --- Public prediction API (used by the calibration backtest) --------------
+
+/** The model's classical W/D/L distribution for a single game at fixed strengths (no form noise). */
+export function predictClassical(
+  rWhite: number,
+  rBlack: number,
+  p: SimParams,
+): { pWhiteWin: number; pDraw: number; pBlackWin: number } {
+  return classicalProbs(rWhite, rBlack, p);
+}
+
+/** The model's probability that White wins the Armageddon at fixed strengths (no form noise). */
+export function predictArmageddonWhiteWin(
+  rWhite: number,
+  rBlack: number,
+  p: SimParams,
+): number {
+  return armageddonWhiteWinProb(rWhite, rBlack, p);
+}
+
 // --- Precomputation (split played vs. remaining games for a given mode) ----
 
 interface CompactGame {
