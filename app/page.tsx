@@ -1,701 +1,710 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSimulation } from "@/hooks/useSimulation";
-import { DATA_THROUGH_ROUND, FLAGS, SECTIONS } from "@/lib/data";
-import { computeStandings, remainingRounds } from "@/lib/standings";
-import { DEFAULT_PARAMS } from "@/lib/sim";
-import { colorFor, fmtPoints, PLACE_LABELS, pct, pct0 } from "@/lib/ui";
-import type {
-  Player,
-  Section,
-  SectionId,
-  SimMode,
-  SimParams,
-  SimResult,
-} from "@/lib/types";
+import { useForecast } from "@/hooks/useForecast";
+import type { Forecast } from "@/lib/forecast";
+import { DEFAULT_PARAMS, gamePoints } from "@/lib/sim";
+import { TOURNAMENTS } from "@/lib/tournaments";
+import type { EventMeta, TournamentMeta } from "@/lib/tournaments";
+import type { Section } from "@/lib/types";
 
-const ITERATION_OPTIONS = [10000, 40000, 100000, 200000];
+// The almanac has no tuning UI, so it runs at a fixed seed and a snappy iteration count
+// (nine round-cutoff simulations per event for the genuine trajectory).
+const SEED = 20260603;
+const ALMANAC_PARAMS = { ...DEFAULT_PARAMS, iterations: 30000 };
+
+type Mode = "live" | "pre";
+
+interface DRow {
+  id: string;
+  name: string;
+  country: string;
+  rating: number;
+  seed: number;
+  dist: number[];
+  title: number;
+  podium: number;
+  proj: number;
+  lo: number;
+  hi: number;
+  pts: number;
+  traj: number[];
+  delta: number | null;
+  modal: number;
+}
+
+const ord = (n: number) => {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+const firstName = (n: string) => n.split(" ")[0];
+const lastName = (n: string) => n.split(" ").slice(-1)[0];
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function rgbaAccent(hex: string, t: number) {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${(Math.min(1, Math.max(0, t)) * 0.92).toFixed(3)})`;
+}
+
+function buildRows(forecast: Forecast, mode: Mode): DRow[] {
+  return forecast.rows
+    .map((r) => {
+      const m = mode === "live" ? r.live : r.pre;
+      return {
+        id: r.id,
+        name: r.name,
+        country: r.country,
+        rating: r.rating,
+        seed: r.seed,
+        dist: m.dist,
+        title: m.win,
+        podium: m.podium,
+        proj: m.proj,
+        lo: m.lo,
+        hi: m.hi,
+        pts: r.live.pts,
+        traj: r.live.traj,
+        delta: mode === "live" ? Number((r.live.win - r.pre.win).toFixed(1)) : null,
+        modal: m.dist.indexOf(Math.max(...m.dist)),
+      };
+    })
+    .sort((a, b) => b.title - a.title || b.proj - a.proj);
+}
 
 export default function Home() {
-  const [sectionId, setSectionId] = useState<SectionId>("open");
-  const [mode, setMode] = useState<SimMode>("live");
-  const [params, setParams] = useState<SimParams>(DEFAULT_PARAMS);
-  const [seed, setSeed] = useState(12345);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [tournamentId, setTournamentId] = useState(TOURNAMENTS[0].id);
+  const [eventId, setEventId] = useState(TOURNAMENTS[0].events[0].id);
+  const [mode, setMode] = useState<Mode>("live");
 
-  const section = SECTIONS[sectionId];
-  const { result, running, progress } = useSimulation(section, mode, params, seed);
+  const tournament = TOURNAMENTS.find((t) => t.id === tournamentId) ?? TOURNAMENTS[0];
+  const event = tournament.events.find((e) => e.id === eventId) ?? tournament.events[0];
+  const live = mode === "live";
 
-  const playerById = useMemo(
-    () => new Map(section.players.map((p) => [p.id, p])),
-    [section],
-  );
+  const { forecast, running } = useForecast(event.section, ALMANAC_PARAMS, SEED);
+  const rows = useMemo(() => (forecast ? buildRows(forecast, mode) : []), [forecast, mode]);
 
-  function setParam(key: keyof SimParams, value: number) {
-    setParams((p) => ({ ...p, [key]: value }));
+  function pickTournament(t: TournamentMeta) {
+    setTournamentId(t.id);
+    setEventId(t.events[0].id);
   }
 
+  const accentStyle = {
+    "--accent": event.accent,
+    "--accent-ink": event.accentInk,
+  } as React.CSSProperties;
+
+  const roundsPlayed = forecast?.roundsPlayed ?? 0;
+  const iterations = forecast?.iterations ?? ALMANAC_PARAMS.iterations;
+  const status = live ? `Live after Round ${roundsPlayed} of ${tournament.roundsTotal}` : "Pre-tournament projection";
+
   return (
-    <div className="board-bg min-h-screen w-full">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-        <Header />
-
-        <Controls
-          sectionId={sectionId}
-          onSection={setSectionId}
-          mode={mode}
-          onMode={setMode}
-          params={params}
-          onIterations={(n) => setParam("iterations", n)}
-          onReroll={() => setSeed((s) => (s * 1103515245 + 12345) & 0x7fffffff)}
-          running={running}
-          progress={progress}
-          showAdvanced={showAdvanced}
-          onToggleAdvanced={() => setShowAdvanced((v) => !v)}
-          onParam={setParam}
-          onResetParams={() => setParams(DEFAULT_PARAMS)}
-        />
-
-        {result ? (
-          <>
-            <StatusLine result={result} section={section} mode={mode} />
-            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-              <div className="flex flex-col gap-5 lg:col-span-2">
-                <ChampionBoard
-                  result={result}
-                  playerById={playerById}
-                  mode={mode}
-                />
-                <PlaceHeatmap result={result} playerById={playerById} />
-              </div>
-              <div className="flex flex-col gap-5">
-                {mode === "live" && (
-                  <StandingsPanel section={section} result={result} />
-                )}
-                <SchedulePanel section={section} playerById={playerById} />
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="mt-10 text-center text-muted">Simulating…</div>
-        )}
-
-        <Methodology />
+    <div className="wrap" style={accentStyle}>
+      <div className="folio">
+        <span>Est. MMXXVI</span>
+        <span>A Monte Carlo Tournament Forecast</span>
+        <span>
+          {tournament.folioNo} · {tournament.city}
+        </span>
       </div>
-    </div>
-  );
-}
 
-// ---------------------------------------------------------------------------
-
-function Header() {
-  return (
-    <header className="border-b border-border pb-6">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-gold">
-        <span>♞</span>
-        <span>Norway Chess 2026 · Oslo · 25 May – 5 June</span>
+      <div className="nameplate">
+        <div className="kick">Gambit&nbsp;·&nbsp;The&nbsp;Almanac</div>
+        <h1>The Gambit Forecast</h1>
+        <div className="sub">
+          <span>
+            {tournament.name} {tournament.edition}
+          </span>
+          <span className="dot" />
+          <span>{status}</span>
+          <span className="dot" />
+          <span>{iterations.toLocaleString()} Simulations</span>
+        </div>
       </div>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-        Championship Simulator
-      </h1>
-      <p className="mt-2 max-w-2xl text-sm text-muted">
-        Monte Carlo title odds for both the Open and Women&apos;s events, modelling
-        Norway Chess&apos;s Armageddon scoring (classical win = 3; drawn classical goes
-        to Armageddon, split 1.5 / 1). Switch between a live forecast conditioned on the
-        games already played and a from-scratch pre-tournament projection.
-      </p>
-    </header>
-  );
-}
 
-// ---------------------------------------------------------------------------
-
-interface ControlsProps {
-  sectionId: SectionId;
-  onSection: (id: SectionId) => void;
-  mode: SimMode;
-  onMode: (m: SimMode) => void;
-  params: SimParams;
-  onIterations: (n: number) => void;
-  onReroll: () => void;
-  running: boolean;
-  progress: number;
-  showAdvanced: boolean;
-  onToggleAdvanced: () => void;
-  onParam: (key: keyof SimParams, value: number) => void;
-  onResetParams: () => void;
-}
-
-function Controls(p: ControlsProps) {
-  return (
-    <div className="mt-6 rounded-xl border border-border bg-panel p-4">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
-        <Field label="Section">
-          <Segmented
-            options={[
-              { value: "open", label: "Open" },
-              { value: "women", label: "Women's" },
-            ]}
-            value={p.sectionId}
-            onChange={(v) => p.onSection(v as SectionId)}
-          />
-        </Field>
-
-        <Field label="Mode">
-          <Segmented
-            options={[
-              { value: "live", label: "Live forecast" },
-              { value: "pretournament", label: "Pre-tournament" },
-            ]}
-            value={p.mode}
-            onChange={(v) => p.onMode(v as SimMode)}
-          />
-        </Field>
-
-        <Field label="Iterations">
-          <select
-            value={p.params.iterations}
-            onChange={(e) => p.onIterations(Number(e.target.value))}
-            className="rounded-md border border-border bg-panel-2 px-3 py-1.5 text-sm tnum outline-none focus:border-gold"
-          >
-            {ITERATION_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n.toLocaleString()}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Sampling">
+      <div className="t-tabs">
+        {TOURNAMENTS.map((t) => (
           <button
-            onClick={p.onReroll}
-            className="rounded-md border border-border bg-panel-2 px-3 py-1.5 text-sm transition-colors hover:border-gold"
+            key={t.id}
+            className="t-tab"
+            aria-pressed={t.id === tournamentId}
+            onClick={() => pickTournament(t)}
           >
-            ↻ Re-roll
+            {t.name} {t.edition}
           </button>
-        </Field>
-
-        <button
-          onClick={p.onToggleAdvanced}
-          className="ml-auto text-sm text-muted underline-offset-4 hover:text-foreground hover:underline"
-        >
-          {p.showAdvanced ? "Hide model settings" : "Model settings"}
-        </button>
+        ))}
       </div>
 
-      <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-panel-2">
-        <div
-          className="h-full bg-gold transition-[width] duration-150"
-          style={{ width: `${Math.round((p.running ? p.progress : 1) * 100)}%` }}
-        />
+      <div className="deck">
+        <div className="tabs">
+          {tournament.events.length > 1 ? (
+            tournament.events.map((e, i) => (
+              <span key={e.id} style={{ display: "flex", alignItems: "center" }}>
+                <button className="tab" aria-pressed={e.id === eventId} onClick={() => setEventId(e.id)}>
+                  {e.label}
+                </button>
+                {i < tournament.events.length - 1 && <span className="tabsep" />}
+              </span>
+            ))
+          ) : (
+            <span className="tab-static">{tournament.events[0].label}</span>
+          )}
+        </div>
+        <div className="mode-toggle">
+          <button aria-pressed={mode === "live"} onClick={() => setMode("live")}>
+            Live Forecast
+          </button>
+          <button aria-pressed={mode === "pre"} onClick={() => setMode("pre")}>
+            Pre-Tournament
+          </button>
+        </div>
       </div>
 
-      {p.showAdvanced && (
-        <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Slider
-            label="White advantage (Elo)"
-            value={p.params.whiteAdvantage}
-            min={0}
-            max={70}
-            step={5}
-            onChange={(v) => p.onParam("whiteAdvantage", v)}
-          />
-          <Slider
-            label="Base classical draw rate"
-            value={p.params.baseDrawRate}
-            min={0.2}
-            max={0.8}
-            step={0.02}
-            format={(v) => `${Math.round(v * 100)}%`}
-            onChange={(v) => p.onParam("baseDrawRate", v)}
-          />
-          <Slider
-            label="Form noise (Elo SD)"
-            value={p.params.ratingSD}
-            min={0}
-            max={120}
-            step={5}
-            onChange={(v) => p.onParam("ratingSD", v)}
-          />
-          <Slider
-            label="Armageddon White edge (Elo)"
-            value={p.params.armageddonWhiteAdvantage}
-            min={-30}
-            max={60}
-            step={5}
-            onChange={(v) => p.onParam("armageddonWhiteAdvantage", v)}
-          />
-          <Slider
-            label="Armageddon rating weight"
-            value={p.params.armageddonDamp}
-            min={0}
-            max={1}
-            step={0.05}
-            format={(v) => v.toFixed(2)}
-            onChange={(v) => p.onParam("armageddonDamp", v)}
-          />
-          <div className="flex items-end">
-            <button
-              onClick={p.onResetParams}
-              className="rounded-md border border-border bg-panel-2 px-3 py-1.5 text-sm transition-colors hover:border-gold"
-            >
-              Reset to defaults
-            </button>
+      {forecast && rows.length > 0 ? (
+        <div className={running ? "is-loading" : undefined}>
+          <Lead rows={rows} live={live} tournament={tournament} event={event} roundsPlayed={roundsPlayed} iterations={iterations} />
+
+          <div className="sec-head">
+            <h3>The Field</h3>
+            <div className="note">
+              <em>Every contender, ranked by probability of first place</em>
+            </div>
           </div>
+          <FieldTable rows={rows} live={live} />
+
+          <div className="twoup">
+            <div className="col">
+              <div className="sec-head">
+                <h3>The Race</h3>
+                <div className="note">
+                  <em>{live ? "Title odds, round by round" : "Odds fixed before play"}</em>
+                </div>
+              </div>
+              <RaceChart rows={rows} live={live} roundLabels={forecast.roundLabels} />
+              <p className="race-cap">
+                {live
+                  ? `Win probability from the eve of the event through Round ${roundsPlayed}; the leader in colour.`
+                  : "No games played, so every line holds flat at its pre-tournament value."}
+              </p>
+            </div>
+            <div className="midrule" />
+            <div className="col">
+              <div className="sec-head">
+                <h3>Where They Finish</h3>
+                <div className="legend">
+                  unlikely
+                  <span className="ramp">
+                    {[0, 0.18, 0.38, 0.62, 0.9].map((v, i) => (
+                      <i key={i} style={{ background: rgbaAccent(event.accent, v) }} />
+                    ))}
+                  </span>
+                  likely
+                </div>
+              </div>
+              <Matrix rows={rows} fieldSize={tournament.fieldSize} accent={event.accent} />
+            </div>
+          </div>
+
+          <div className="sec-head">
+            <h3>The Card</h3>
+            <div className="note">
+              <em>Round by round, results and remaining fixtures</em>
+            </div>
+          </div>
+          <RoundByRound section={event.section} />
+
+          <div className="sec-head">
+            <h3>Projected Finish</h3>
+            <div className="note">
+              <em>The most likely final classification</em>
+            </div>
+          </div>
+          <ProjectedFinish rows={rows} live={live} />
+
+          <Colophon tournament={tournament} live={live} iterations={iterations} />
+        </div>
+      ) : (
+        <div style={{ padding: "80px 0", textAlign: "center", color: "var(--ink-3)", fontFamily: "var(--font-sans)", letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 12 }}>
+          Casting the forecast…
         </div>
       )}
+
+      <div className="signoff">
+        Calibrated on 258 real games · Not affiliated with any organiser · Gambit Almanac © MMXXVI
+      </div>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-medium uppercase tracking-wider text-muted">
-        {label}
-      </span>
-      {children}
-    </div>
-  );
-}
-
-function Segmented({
-  options,
-  value,
-  onChange,
+function Lead({
+  rows,
+  live,
+  tournament,
+  event,
+  roundsPlayed,
+  iterations,
 }: {
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
+  rows: DRow[];
+  live: boolean;
+  tournament: TournamentMeta;
+  event: EventMeta;
+  roundsPlayed: number;
+  iterations: number;
 }) {
+  void event;
+  const L = rows[0];
+  const second = rows[1];
+  const N = tournament.fieldSize;
+  const dd = rows.filter((r) => r.title >= 10).length;
+  const delta = L.delta ?? 0;
+
   return (
-    <div className="inline-flex rounded-md border border-border bg-panel-2 p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          className={`rounded px-3 py-1 text-sm transition-colors ${
-            value === o.value
-              ? "bg-gold font-medium text-black"
-              : "text-muted hover:text-foreground"
-          }`}
+    <section className="lead">
+      <div className="lead-num">
+        <span className="big tnum">
+          {Math.round(L.title)}
+          <sup>%</sup>
+        </span>
+        <div className="cap">Probability of first place</div>
+      </div>
+      <div className="vr" />
+      <div className="lead-body">
+        <div className="eyebrow">{live ? "The Front-Runner" : "The Projected Favourite"}</div>
+        <h2>{L.name}</h2>
+        <div className="lead-meta">
+          <b>{L.country}</b> · Rating {L.rating}
+          {live ? ` · ${L.pts} points` : ""} · Seed №{L.seed}{" "}
+          {live && (
+            <span className={`delta ${delta >= 0 ? "up" : "down"}`}>
+              {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)} since start
+            </span>
+          )}
+        </div>
+        <p>
+          <span className="dropcap">{L.name[0]}</span>
+          {live
+            ? `${firstName(L.name)} leads after ${roundsPlayed} rounds, first in ${L.title.toFixed(0)}% of ${iterations.toLocaleString()} simulated finishes. ${lastName(second.name)} is the nearest pursuer at ${second.title.toFixed(0)}%.`
+            : `Before a move is played, the ratings favour ${firstName(L.name)}, but the field is tight: ${dd} of ${N} hold a double-digit shot at the title.`}
+        </p>
+        <div className="lead-stats">
+          <div className="st">
+            <div className="lab">Reach the Podium</div>
+            <div className="val tnum">{Math.round(L.podium)}%</div>
+          </div>
+          <div className="st">
+            <div className="lab">Projected Points</div>
+            <div className="val tnum">{L.proj.toFixed(1)}</div>
+          </div>
+          <div className="st">
+            <div className="lab">Likeliest Finish</div>
+            <div className="val">{ord(L.modal + 1)}</div>
+          </div>
+        </div>
+      </div>
+      <div className="stamp">
+        <div className="a">{live ? "LIVE" : "PRE"}</div>
+        <div className="b">{live ? `Round ${roundsPlayed} / ${tournament.roundsTotal}` : "Before Round 1"}</div>
+      </div>
+    </section>
+  );
+}
+
+function FieldTable({ rows, live }: { rows: DRow[]; live: boolean }) {
+  const maxWin = Math.max(...rows.map((r) => r.title), 1);
+  const maxProj = Math.max(...rows.map((r) => r.hi), 1);
+  return (
+    <table className="field">
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Player</th>
+          <th>Win the Title</th>
+          <th className="r">Podium</th>
+          <th className="r">Proj. Pts</th>
+          <th className="c">{live ? "Movement" : "Finish Range"}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={r.id} className={i === 0 ? "leader" : undefined}>
+            <td className="rk tnum">{i + 1}</td>
+            <td>
+              <div className="pl-name">{r.name}</div>
+              <div className="pl-sub">
+                <span className="flag">{r.country}</span>
+                <span>{r.rating}</span>
+                {live && (
+                  <>
+                    <span>·</span>
+                    <span>{r.pts} pts</span>
+                  </>
+                )}
+              </div>
+            </td>
+            <td className="win-cell">
+              <div style={{ display: "flex", alignItems: "baseline" }}>
+                <span className="win-n tnum">
+                  {r.title.toFixed(1)}
+                  <sup>%</sup>
+                </span>
+                {live && r.delta != null && (
+                  <span className={`delta ${r.delta >= 0 ? "up" : "down"}`}>
+                    {r.delta >= 0 ? "▲" : "▼"}
+                    {Math.abs(r.delta).toFixed(1)}
+                  </span>
+                )}
+              </div>
+              <div className="win-bar">
+                <i style={{ width: `${((r.title / maxWin) * 100).toFixed(1)}%` }} />
+              </div>
+            </td>
+            <td className="num r tnum">
+              {Math.round(r.podium)}
+              <small>%</small>
+            </td>
+            <td>
+              <div className="num r tnum">{r.proj.toFixed(1)}</div>
+              <div className="rng tnum">
+                {r.lo.toFixed(1)}-{r.hi.toFixed(1)}
+              </div>
+            </td>
+            <td style={{ width: 150, textAlign: "center" }}>
+              {live ? <Movement traj={r.traj} /> : <RangeBar r={r} maxProj={maxProj} />}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function Movement({ traj }: { traj: number[] }) {
+  const w = 120;
+  const h = 30;
+  const pad = 4;
+  const d = traj.length > 1 ? traj : [traj[0] ?? 0, traj[0] ?? 0];
+  const mn = Math.min(...d);
+  const mx = Math.max(...d);
+  const sp = Math.max(0.5, mx - mn);
+  const X = (i: number) => pad + (i / (d.length - 1)) * (w - pad * 2);
+  const Y = (v: number) => h - pad - ((v - mn) / sp) * (h - pad * 2);
+  const pts = d.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+  return (
+    <svg className="spark" width={w} height={h} style={{ margin: "0 auto", overflow: "visible" }}>
+      <polyline points={pts} fill="none" stroke="var(--ink)" strokeWidth="1.3" strokeLinejoin="round" />
+      <circle cx={X(d.length - 1)} cy={Y(d[d.length - 1])} r="2.6" fill="var(--accent)" />
+    </svg>
+  );
+}
+
+function RangeBar({ r, maxProj }: { r: DRow; maxProj: number }) {
+  const w = 120;
+  const h = 30;
+  const min = r.lo > 2 ? Math.floor(r.lo) - 1 : 0;
+  const max = maxProj * 1.04;
+  const sc = (v: number) => Math.max(0, Math.min(w, ((v - min) / (max - min)) * w));
+  return (
+    <svg className="spark" width={w} height={h} style={{ margin: "0 auto", overflow: "visible" }}>
+      <line x1="0" y1="15" x2={w} y2="15" stroke="var(--paper-3)" strokeWidth="5" />
+      <line x1={sc(r.lo)} y1="15" x2={sc(r.hi)} y2="15" stroke="var(--ink)" strokeWidth="1.2" />
+      <line x1={sc(r.lo)} y1="11" x2={sc(r.lo)} y2="19" stroke="var(--ink)" strokeWidth="1" />
+      <line x1={sc(r.hi)} y1="11" x2={sc(r.hi)} y2="19" stroke="var(--ink)" strokeWidth="1" />
+      <circle cx={sc(r.proj)} cy="15" r="3.2" fill="var(--accent)" />
+    </svg>
+  );
+}
+
+function RaceChart({ rows, live, roundLabels }: { rows: DRow[]; live: boolean; roundLabels: string[] }) {
+  const W = 560;
+  const H = 300;
+  const pl = 20;
+  const prr = 92;
+  const pt = 18;
+  const pb = 30;
+  const pw = W - pl - prr;
+  const ph = H - pt - pb;
+  const maxT = Math.max(...rows.map((r) => r.title), 1);
+  const yMax = Math.max(20, Math.ceil(maxT / 5) * 5);
+  const labels = live ? roundLabels : ["Start", "Finish"];
+  const n = labels.length;
+  const X = (i: number) => pl + (i / (n - 1)) * pw;
+  const Y = (v: number) => pt + (1 - v / yMax) * ph;
+  const series = rows.map((r, idx) => ({
+    short: lastName(r.name),
+    title: r.title,
+    rank: idx,
+    data: live ? r.traj : [r.title, r.title],
+  }));
+  const ends = series.map((s) => ({ ...s, ly: Y(s.data[s.data.length - 1]) })).sort((a, b) => a.ly - b.ly);
+  for (let i = 1; i < ends.length; i++) {
+    if (ends[i].ly - ends[i - 1].ly < 15) ends[i].ly = ends[i - 1].ly + 15;
+  }
+  const gridVals = [0, 1, 2, 3].map((i) => Math.round((yMax * i) / 3));
+  const drawOrder = [...series].sort((a, b) => b.rank - a.rank);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", overflow: "visible" }}>
+      {gridVals.map((v, k) => (
+        <g key={`g${k}`}>
+          <line x1={pl} y1={Y(v)} x2={pl + pw} y2={Y(v)} stroke="var(--rule)" strokeWidth="1" />
+          <text x={pl} y={Y(v) - 4} fontFamily="var(--font-sans)" fontSize="9" fill="var(--ink-3)" letterSpacing="1">
+            {v}%
+          </text>
+        </g>
+      ))}
+      {labels.map((l, i) => (
+        <text
+          key={`l${i}`}
+          x={X(i)}
+          y={H - 10}
+          textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
+          fontFamily="var(--font-sans)"
+          fontSize="9.5"
+          fill="var(--ink-3)"
+          letterSpacing="1"
         >
-          {o.label}
-        </button>
+          {l.toUpperCase()}
+        </text>
+      ))}
+      <line x1={pl} y1={Y(0)} x2={pl + pw} y2={Y(0)} stroke="var(--ink)" strokeWidth="1" />
+      {drawOrder.map((s, k) => {
+        const d = "M " + s.data.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" L ");
+        const lead = s.rank === 0;
+        return (
+          <g key={`s${k}`}>
+            <path
+              d={d}
+              fill="none"
+              stroke={lead ? "var(--accent)" : "var(--ink)"}
+              strokeWidth={lead ? 2.4 : 1}
+              strokeLinejoin="round"
+              strokeDasharray={live ? undefined : "1 4"}
+              opacity={lead ? 1 : s.rank <= 2 ? 0.78 : 0.5}
+            />
+            <circle
+              cx={X(s.data.length - 1)}
+              cy={Y(s.data[s.data.length - 1])}
+              r={lead ? 3 : 2}
+              fill={lead ? "var(--accent)" : "var(--ink)"}
+            />
+          </g>
+        );
+      })}
+      {ends.map((s, k) => {
+        const lead = s.rank === 0;
+        return (
+          <text
+            key={`e${k}`}
+            x={pl + pw + 10}
+            y={s.ly + 3.2}
+            fontFamily="var(--font-serif)"
+            fontSize="11"
+            fontWeight={lead ? 600 : 500}
+            fill={s.rank <= 2 ? "var(--ink)" : "var(--ink-3)"}
+          >
+            {s.short}
+            <tspan fontFamily="var(--font-sans)" dx="5" fontSize="9.5" fontWeight="600" fill={lead ? "var(--accent-ink)" : "var(--ink-3)"}>
+              {Math.round(s.title)}%
+            </tspan>
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+function Matrix({ rows, fieldSize, accent }: { rows: DRow[]; fieldSize: number; accent: string }) {
+  const ref = Math.max(...rows.flatMap((r) => r.dist), 1);
+  const pos = Array.from({ length: fieldSize }, (_, i) => ord(i + 1));
+  return (
+    <table className="matrix">
+      <thead>
+        <tr>
+          <th className="pl">Player</th>
+          {pos.map((o, i) => (
+            <th key={i}>{o}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.id}>
+            <td className="rowlab">
+              {lastName(r.name)}
+              <small className="tnum">{Math.round(r.title)}%</small>
+            </td>
+            {r.dist.map((p, i) => {
+              const t = Math.pow(p / ref, 0.82);
+              const modal = i === r.modal;
+              const col = t > 0.55 ? "var(--paper)" : "var(--ink)";
+              return (
+                <td key={i}>
+                  <div className={`mcell ${modal ? "modal" : ""}`} style={{ background: rgbaAccent(accent, t), color: col }}>
+                    {p < 1 ? p.toFixed(1) : Math.round(p)}
+                  </div>
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function formatDate(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${MONTHS[Number(m) - 1]} ${Number(d)}`;
+}
+function formatPts(p: number): string {
+  return p === 1.5 ? "1½" : String(p);
+}
+
+function RoundByRound({ section }: { section: Section }) {
+  const shortById = new Map(section.players.map((p) => [p.id, p.short]));
+  return (
+    <div className="rounds">
+      {section.rounds.map((round) => (
+        <div className="round" key={round.number}>
+          <div className="round-lab">
+            <span>Round {round.number}</span>
+            <span>{formatDate(round.date)}</span>
+          </div>
+          {round.games.map((g, i) => {
+            const w = shortById.get(g.white) ?? g.white;
+            const b = shortById.get(g.black) ?? g.black;
+            if (!g.result) {
+              return (
+                <div className="game fixture" key={i}>
+                  <div className="grow">
+                    <span className="nm">{w}</span>
+                    <span className="sq wsq" title="White" />
+                  </div>
+                  <div className="grow">
+                    <span className="nm">{b}</span>
+                    <span className="sq bsq" title="Black" />
+                  </div>
+                </div>
+              );
+            }
+            const [wp, bp] = gamePoints(g.result);
+            const wWin = wp > bp;
+            const arm = g.result.classical === "draw";
+            return (
+              <div className="game" key={i}>
+                <div className="grow">
+                  <span className={`nm ${wWin ? "win" : ""}`}>{w}</span>
+                  <span className="sc tnum">{formatPts(wp)}</span>
+                </div>
+                <div className="grow">
+                  <span className={`nm ${!wWin ? "win" : ""}`}>{b}</span>
+                  <span className="sc tnum">{formatPts(bp)}</span>
+                </div>
+                {arm && <span className="g-tag">Armageddon</span>}
+              </div>
+            );
+          })}
+        </div>
       ))}
     </div>
   );
 }
 
-function Slider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  format,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-  format?: (v: number) => string;
-}) {
+function ProjectedFinish({ rows, live }: { rows: DRow[]; live: boolean }) {
+  const byProj = [...rows].sort((a, b) => b.proj - a.proj);
+  const maxProj = Math.max(...rows.map((r) => r.hi), 1);
+  const w = 220;
+  const sc = (v: number) => Math.max(0, Math.min(w, (v / (maxProj * 1.04)) * w));
   return (
-    <label className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between text-xs text-muted">
-        <span>{label}</span>
-        <span className="tnum text-foreground">
-          {format ? format(value) : value}
-        </span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="accent-gold"
-      />
-    </label>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function StatusLine({
-  result,
-  section,
-  mode,
-}: {
-  result: SimResult;
-  section: Section;
-  mode: SimMode;
-}) {
-  return (
-    <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-      <span>
-        <span className="text-foreground">{section.name}</span> section
-      </span>
-      <span aria-hidden>·</span>
-      {mode === "live" ? (
-        <span>
-          Conditioned on{" "}
-          <span className="text-foreground">Rounds 1–{result.roundsPlayed}</span>{" "}
-          · {result.gamesRemaining} games left to simulate
-        </span>
-      ) : (
-        <span>All {result.totalRounds} rounds simulated from ratings</span>
-      )}
-      <span aria-hidden>·</span>
-      <span className="tnum">{result.iterations.toLocaleString()} simulations</span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function ChampionBoard({
-  result,
-  playerById,
-  mode,
-}: {
-  result: SimResult;
-  playerById: Map<string, Player>;
-  mode: SimMode;
-}) {
-  const rows = useMemo(
-    () =>
-      [...result.players].sort(
-        (a, b) => b.winProb - a.winProb || a.expRank - b.expRank,
-      ),
-    [result],
-  );
-  const maxWin = Math.max(...rows.map((r) => r.winProb), 0.0001);
-
-  return (
-    <section className="rounded-xl border border-border bg-panel p-4 sm:p-5">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-          Championship odds
-        </h2>
-        <span className="text-xs text-muted">probability of finishing 1st</span>
-      </div>
-
-      <div className="mt-4 flex flex-col gap-1.5">
-        {rows.map((r, i) => {
-          const player = playerById.get(r.id)!;
-          const color = colorFor(r.id);
-          return (
-            <div
-              key={r.id}
-              className="grid grid-cols-[1.4rem_1fr] items-center gap-3 rounded-lg px-1.5 py-2 sm:grid-cols-[1.4rem_minmax(9rem,1fr)_2fr_auto]"
-            >
-              <span className="tnum text-sm text-muted">{i + 1}</span>
-
-              <div className="flex items-center gap-2 overflow-hidden">
-                <span aria-hidden>{FLAGS[player.country]}</span>
-                <span className="truncate font-medium">{player.short}</span>
-                <span className="hidden text-xs text-muted sm:inline">
-                  {player.rating}
-                </span>
-              </div>
-
-              <div className="col-span-2 sm:col-span-1">
-                <div className="relative h-6 w-full overflow-hidden rounded bg-panel-2">
-                  <div
-                    className="h-full rounded"
-                    style={{
-                      width: `${(r.winProb / maxWin) * 100}%`,
-                      backgroundColor: color,
-                      opacity: 0.85,
-                    }}
-                  />
-                  <span className="absolute inset-y-0 left-2 flex items-center text-xs font-semibold text-foreground tnum">
-                    {pct(r.winProb)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="col-span-2 flex items-center justify-between gap-4 text-xs text-muted sm:col-span-1 sm:justify-end">
-                <span className="tnum" title="Probability of a top-3 finish">
-                  podium {pct0(r.podiumProb)}
-                </span>
-                <span
-                  className="tnum text-foreground"
-                  title="Projected final points (mean ± SD)"
-                >
-                  {fmtPoints(r.expPoints)}
-                  <span className="text-muted"> ±{fmtPoints(r.pointsSd)}</span>
-                  {mode === "live" && (
-                    <span className="ml-1 text-muted">
-                      (now {fmtPoints(r.currentPoints)})
-                    </span>
-                  )}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function PlaceHeatmap({
-  result,
-  playerById,
-}: {
-  result: SimResult;
-  playerById: Map<string, Player>;
-}) {
-  const rows = useMemo(
-    () => [...result.players].sort((a, b) => a.expRank - b.expRank),
-    [result],
-  );
-  const n = result.players.length;
-
-  return (
-    <section className="rounded-xl border border-border bg-panel p-4 sm:p-5">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-          Finishing position
-        </h2>
-        <span className="text-xs text-muted">probability of each final place</span>
-      </div>
-
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full border-separate border-spacing-1 text-center text-xs">
-          <thead>
-            <tr>
-              <th className="w-32 text-left font-normal text-muted">Player</th>
-              {Array.from({ length: n }, (_, k) => (
-                <th key={k} className="font-medium text-muted">
-                  {PLACE_LABELS[k]}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const player = playerById.get(r.id)!;
-              return (
-                <tr key={r.id}>
-                  <td className="py-1 text-left">
-                    <span className="mr-1.5" aria-hidden>
-                      {FLAGS[player.country]}
-                    </span>
-                    <span className="font-medium">{player.short}</span>
-                  </td>
-                  {r.placeProbs.map((prob, k) => {
-                    const alpha =
-                      prob <= 0 ? 0 : Math.min(1, prob * 0.9 + 0.06);
-                    const dark = prob > 0.45;
-                    return (
-                      <td
-                        key={k}
-                        className="tnum rounded"
-                        style={{
-                          backgroundColor:
-                            prob <= 0
-                              ? "var(--panel-2)"
-                              : `rgba(233, 185, 73, ${alpha})`,
-                          color: dark ? "#1a1205" : "var(--foreground)",
-                        }}
-                      >
-                        <div className="px-1.5 py-1.5">
-                          {prob < 0.005 ? "" : `${Math.round(prob * 100)}`}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-3 text-[11px] text-muted">
-        Cells show the percentage chance of finishing in that position (rows sorted by
-        expected finish). Brighter = more likely.
-      </p>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function StandingsPanel({
-  section,
-  result,
-}: {
-  section: Section;
-  result: SimResult;
-}) {
-  const standings = computeStandings(section);
-  const winById = new Map(result.players.map((p) => [p.id, p.winProb]));
-
-  return (
-    <section className="rounded-xl border border-border bg-panel p-4 sm:p-5">
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-        Current standings
-      </h2>
-      <table className="mt-3 w-full text-sm">
-        <thead>
-          <tr className="text-left text-[11px] uppercase tracking-wider text-muted">
-            <th className="pb-2 font-medium">#</th>
-            <th className="pb-2 font-medium">Player</th>
-            <th className="pb-2 text-right font-medium">Pts</th>
-            <th className="pb-2 text-right font-medium">W–L</th>
-            <th className="pb-2 text-right font-medium">Win</th>
+    <table className="field proj">
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Player</th>
+          {live && <th className="r">Now</th>}
+          <th className="r">Proj. Pts</th>
+          <th>Projected Range</th>
+          <th className="r">Win %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {byProj.map((r, i) => (
+          <tr key={r.id} className={i === 0 ? "leader" : undefined}>
+            <td className="rk tnum">{i + 1}</td>
+            <td>
+              <span className="pl-name">{r.name}</span>
+              <span className="pl-inline">
+                {r.country} · {r.rating}
+              </span>
+            </td>
+            {live && <td className="num r tnum">{r.pts}</td>}
+            <td className="num r tnum">{r.proj.toFixed(1)}</td>
+            <td>
+              <svg width={w} height="22" style={{ display: "block", overflow: "visible" }}>
+                <line x1="0" y1="11" x2={w} y2="11" stroke="var(--paper-3)" strokeWidth="5" />
+                <line x1={sc(r.lo)} y1="11" x2={sc(r.hi)} y2="11" stroke="var(--ink)" strokeWidth="1.4" />
+                <line x1={sc(r.lo)} y1="7" x2={sc(r.lo)} y2="15" stroke="var(--ink)" strokeWidth="1" />
+                <line x1={sc(r.hi)} y1="7" x2={sc(r.hi)} y2="15" stroke="var(--ink)" strokeWidth="1" />
+                <circle cx={sc(r.proj)} cy="11" r="3.4" fill="var(--accent)" />
+              </svg>
+              <span className="rng tnum" style={{ textAlign: "left", marginTop: 2 }}>
+                {r.lo.toFixed(1)}-{r.hi.toFixed(1)} pts
+              </span>
+            </td>
+            <td className="num r tnum">
+              {r.title.toFixed(1)}
+              <small>%</small>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {standings.map((row, i) => (
-            <tr key={row.player.id} className="border-t border-border">
-              <td className="py-1.5 tnum text-muted">{i + 1}</td>
-              <td className="py-1.5">
-                <span className="mr-1.5" aria-hidden>
-                  {FLAGS[row.player.country]}
-                </span>
-                {row.player.short}
-              </td>
-              <td className="py-1.5 text-right tnum font-semibold">
-                {fmtPoints(row.points)}
-              </td>
-              <td className="py-1.5 text-right tnum text-muted">
-                {row.wins}–{row.losses}
-              </td>
-              <td
-                className="py-1.5 text-right tnum"
-                style={{ color: colorFor(row.player.id) }}
-              >
-                {pct0(winById.get(row.player.id) ?? 0)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function SchedulePanel({
-  section,
-  playerById,
-}: {
-  section: Section;
-  playerById: Map<string, Player>;
-}) {
-  const rounds = remainingRounds(section);
-  if (rounds.length === 0) {
-    return (
-      <section className="rounded-xl border border-border bg-panel p-4 sm:p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-          Remaining games
-        </h2>
-        <p className="mt-3 text-sm text-muted">All rounds complete.</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="rounded-xl border border-border bg-panel p-4 sm:p-5">
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-        Remaining games
-      </h2>
-      <div className="mt-3 flex flex-col gap-3">
-        {rounds.map((round) => (
-          <div key={round.number}>
-            <div className="text-[11px] uppercase tracking-wider text-muted">
-              Round {round.number} · {formatDate(round.date)}
-            </div>
-            <div className="mt-1.5 flex flex-col gap-1">
-              {round.games.map((g, i) => {
-                const w = playerById.get(g.white)!;
-                const b = playerById.get(g.black)!;
-                return (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-md bg-panel-2 px-2.5 py-1.5 text-sm"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-sm border border-border bg-white"
-                        title="White"
-                      />
-                      {w.short}
-                    </span>
-                    <span className="text-xs text-muted">vs</span>
-                    <span className="flex items-center gap-1.5">
-                      {b.short}
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-sm border border-border bg-black"
-                        title="Black"
-                      />
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         ))}
-      </div>
-    </section>
+      </tbody>
+    </table>
   );
 }
 
-function formatDate(iso: string): string {
-  const [, m, d] = iso.split("-");
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${months[Number(m) - 1]} ${Number(d)}`;
-}
-
-// ---------------------------------------------------------------------------
-
-function Methodology() {
+function Colophon({ tournament, live, iterations }: { tournament: TournamentMeta; live: boolean; iterations: number }) {
+  void live;
   return (
-    <footer className="mt-10 border-t border-border pt-6 text-xs leading-relaxed text-muted">
-      <h2 className="text-sm font-semibold text-foreground">How it works</h2>
-      <p className="mt-2 max-w-3xl">
-        Each simulation samples a per-event &quot;form&quot; rating for every player
-        (FIDE rating plus Gaussian noise), then plays out the remaining games. A classical
-        game&apos;s result comes from an Elo expected-score curve with a White advantage and
-        a draw probability that is highest in even matchups. When a classical game is drawn,
-        an Armageddon game is played using a flatter, higher-variance model (White keeps the
-        White pieces and gets more time; Black has draw odds). Points follow Norway Chess
-        rules: 3 for a classical win, 1.5 / 1 for the Armageddon, 0 for a classical loss.
-      </p>
-      <p className="mt-2 max-w-3xl">
-        Final standings are ranked by points, then a Sonneborn-Berger-style score, then
-        decisive wins, with ties at the top resolved in favour of tournament strength (an
-        approximation of the playoff). Data is verified through Round {DATA_THROUGH_ROUND};
-        update <code className="text-foreground">lib/data.ts</code> as new results come in.
-        This is a model, not a prediction - tweak the parameters under &quot;Model
-        settings&quot; to see how sensitive the odds are.
-      </p>
-    </footer>
+    <div className="colophon">
+      <div>
+        <h4>How the Forecast Is Cast</h4>
+        <p>
+          <span className="dc">W</span>e play the unfinished tournament {iterations.toLocaleString()} times over, deciding each
+          remaining game from the players&apos; ratings and form. <em>Live</em> conditions on the results so far;{" "}
+          <em>Pre-Tournament</em> rewinds to before move one. Draw and Armageddon rates are calibrated on 258 real games.
+        </p>
+      </div>
+      <div>
+        <h4>The Scoring</h4>
+        <ul>
+          {tournament.scoring.map(([k, v]) => (
+            <li key={k}>
+              <span>{k}</span>
+              <span>{v}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <h4>The Particulars</h4>
+        <ul>
+          {[
+            ["Format", tournament.formatShort],
+            ["Rounds", String(tournament.roundsTotal)],
+            ["Venue", tournament.venue],
+            ["Dates", tournament.dates],
+          ].map(([k, v]) => (
+            <li key={k}>
+              <span>{k}</span>
+              <span>{v}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
