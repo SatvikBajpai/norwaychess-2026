@@ -13,8 +13,8 @@
 // played, just fill in the `result` for the relevant pairing below and the app re-simulates.
 //
 // Verified: recomputing standings from these games reproduces the official tables exactly
-// (Open after R8: So 14, Firouzja 13, Pragg 12, Keymer 10, Carlsen 9, Gukesh 8;
-//  Women after R8: Assaubayeva 15.5, Muzychuk 10.5, Divya 10, Zhu 10, Ju 9, Humpy 8).
+// (Open after R9: So 15.5, Pragg 15, Firouzja 14.5, Keymer 11, Carlsen 10, Gukesh 8;
+//  Women after R9: Assaubayeva 16.5 [title clinched], Zhu 13, Muzychuk 12, Ju 10.5, Divya 10, Humpy 9).
 
 import type { Player, Round, Section } from "./types";
 
@@ -113,9 +113,9 @@ const openRounds: Round[] = [
     number: 9,
     date: "2026-06-04",
     games: [
-      { white: "so", black: "carlsen" },
-      { white: "keymer", black: "firouzja" },
-      { white: "gukesh", black: "pragg" },
+      { white: "so", black: "carlsen", result: { classical: D, armageddon: W } },
+      { white: "keymer", black: "firouzja", result: { classical: D, armageddon: B } },
+      { white: "gukesh", black: "pragg", result: { classical: B } },
     ],
   },
   {
@@ -218,9 +218,9 @@ const womenRounds: Round[] = [
     number: 9,
     date: "2026-06-04",
     games: [
-      { white: "divya", black: "zhu" },
-      { white: "assaubayeva", black: "muzychuk" },
-      { white: "humpy", black: "ju" },
+      { white: "divya", black: "zhu", result: { classical: B } },
+      { white: "assaubayeva", black: "muzychuk", result: { classical: D, armageddon: B } },
+      { white: "humpy", black: "ju", result: { classical: D, armageddon: B } },
     ],
   },
   {
@@ -242,7 +242,7 @@ export const SECTIONS: Record<string, Section> = {
 export const SECTION_LIST: Section[] = [SECTIONS.open, SECTIONS.women];
 
 /** Last completed round across the dataset (used for "data through Round N" labels). */
-export const DATA_THROUGH_ROUND = 8;
+export const DATA_THROUGH_ROUND = 9;
 
 export const FLAGS: Record<string, string> = {
   NOR: "🇳🇴",
